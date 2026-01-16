@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📚 Kitap Satış Tahmin - AI Powered</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-900: #111827;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--gray-900);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title span {
+            font-size: 1.5rem;
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--gray-700);
+            margin-bottom: 6px;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--gray-200);
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        /* File Upload */
+        .upload-area {
+            border: 2px dashed var(--gray-300);
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: var(--gray-50);
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .upload-area.has-image {
+            padding: 10px;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        .upload-text {
+            color: var(--gray-600);
+        }
+
+        #preview {
+            max-width: 100%;
+            max-height: 280px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        /* Button */
+        .btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn:disabled {
+            background: var(--gray-300);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Results */
+        #result-section {
+            display: none;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            margin: 0 auto 20px;
+        }
+
+        .score-circle.positive {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .score-circle.negative {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .score-circle.neutral {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+
+        .score-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .score-label {
+            font-size: 0.75rem;
+            opacity: 0.9;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-box {
+            background: var(--gray-50);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gray-900);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--gray-600);
+            margin-top: 4px;
+        }
+
+        .assessment-box {
+            background: var(--gray-50);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .assessment-text {
+            font-size: 1rem;
+            color: var(--gray-700);
+            font-weight: 500;
+        }
+
+        .category-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-top: 16px;
+        }
+
+        /* Ideal Ranges */
+        .ideal-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--gray-200);
+        }
+
+        .ideal-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--gray-700);
+            margin-bottom: 12px;
+        }
+
+        .ideal-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 0.875rem;
+        }
+
+        .ideal-item span:first-child {
+            color: var(--gray-600);
+        }
+
+        .ideal-item span:last-child {
+            font-weight: 500;
+            color: var(--gray-900);
+        }
+
+        /* Loading */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-box {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            text-align: center;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--gray-200);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* API Settings */
+        .api-settings {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 12px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .api-settings label {
+            color: white;
+            font-size: 0.875rem;
+            margin: 0;
+            white-space: nowrap;
+        }
+
+        .api-settings input {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ef4444;
+        }
+
+        .status-dot.connected {
+            background: #10b981;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            color: rgba(255,255,255,0.7);
+            margin-top: 30px;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📚 Kitap Satış Tahmin</h1>
+            <p>Yapay zeka ile kitabınızın satış potansiyelini öğrenin</p>
+        </header>
+
+        <div class="api-settings">
+            <label>🔗 API:</label>
+            <input type="text" id="api-url" value="http://localhost:8000" placeholder="API URL">
+            <div class="status-dot" id="status-dot"></div>
+        </div>
+
+        <div class="main-grid">
+            <!-- Sol: Form -->
+            <div class="card">
+                <h2 class="card-title"><span>📝</span> Kitap Bilgileri</h2>
+
+                <div class="form-group">
+                    <label>Kapak Resmi</label>
+                    <div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
+                        <div class="upload-icon">📷</div>
+                        <div class="upload-text">Kapak resmini yüklemek için tıklayın</div>
+                        <img id="preview">
+                    </div>
+                    <input type="file" id="file-input" accept="image/*">
+                </div>
+
+                <div class="form-group">
+                    <label>Kitap Adı</label>
+                    <input type="text" id="title" placeholder="Örn: Suç ve Ceza">
+                </div>
+
+                <div class="row">
+                    <div class="form-group">
+                        <label>Yazar</label>
+                        <input type="text" id="author" placeholder="Örn: Fyodor Dostoyevski">
+                    </div>
+                    <div class="form-group">
+                        <label>Yayınevi</label>
+                        <input type="text" id="publisher" placeholder="Örn: İş Bankası Kültür">
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="form-group">
+                        <label>Sayfa Sayısı</label>
+                        <input type="number" id="page" value="320" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Fiyat (₺)</label>
+                        <input type="number" id="price" value="85" min="1">
+                    </div>
+                </div>
+
+                <button class="btn" id="predict-btn" onclick="predict()">
+                    <span>🔮</span> Tahmin Et
+                </button>
+            </div>
+
+            <!-- Sağ: Sonuçlar -->
+            <div class="card" id="result-section">
+                <h2 class="card-title"><span>📊</span> Analiz Sonuçları</h2>
+
+                <div class="score-circle" id="score-circle">
+                    <div class="score-value" id="score-value">+0.00</div>
+                    <div class="score-label">Kapak Etkisi</div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-value" id="baseline-value">0</div>
+                        <div class="stat-label">Baseline Yorum</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="predicted-value">0</div>
+                        <div class="stat-label">Tahmini Yorum</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="sales-value">0</div>
+                        <div class="stat-label">Tahmini Satış</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="effect-pct">+0%</div>
+                        <div class="stat-label">Kapak Farkı</div>
+                    </div>
+                </div>
+
+                <div class="assessment-box">
+                    <div class="assessment-text" id="assessment">-</div>
+                    <div class="category-badge" id="category">-</div>
+                </div>
+
+                <div class="ideal-section" id="ideal-section" style="display:none;">
+                    <div class="ideal-title">💡 Önerilen Değerler</div>
+                    <div class="ideal-item">
+                        <span>İdeal Fiyat:</span>
+                        <span id="ideal-price">-</span>
+                    </div>
+                    <div class="ideal-item">
+                        <span>İdeal Sayfa:</span>
+                        <span id="ideal-page">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sonuç yokken placeholder -->
+            <div class="card" id="placeholder-section">
+                <h2 class="card-title"><span>📊</span> Analiz Sonuçları</h2>
+                <div style="text-align:center; padding: 60px 20px; color: var(--gray-600);">
+                    <div style="font-size: 4rem; margin-bottom: 16px;">🎯</div>
+                    <p>Kitap bilgilerini girip<br>"Tahmin Et" butonuna basın</p>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            Yapay Zeka ile Güçlendirilmiştir • 2026
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading">
+        <div class="loading-box">
+            <div class="spinner"></div>
+            <div>Analiz yapılıyor...</div>
+        </div>
+    </div>
+
+    <script>
+        // File upload preview
+        document.getElementById('file-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('preview');
+                    const uploadArea = document.getElementById('upload-area');
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                    uploadArea.classList.add('has-image');
+                    uploadArea.querySelector('.upload-icon').style.display = 'none';
+                    uploadArea.querySelector('.upload-text').style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Check API connection
+        async function checkAPI() {
+            const apiUrl = document.getElementById('api-url').value;
+            const dot = document.getElementById('status-dot');
+            try {
+                const res = await fetch(`${apiUrl}/health`, { method: 'GET', mode: 'cors' });
+                dot.classList.toggle('connected', res.ok);
+            } catch {
+                dot.classList.remove('connected');
+            }
+        }
+
+        document.getElementById('api-url').addEventListener('change', checkAPI);
+        setInterval(checkAPI, 10000);
+        setTimeout(checkAPI, 1000);
+
+        // Predict
+        async function predict() {
+            const apiUrl = document.getElementById('api-url').value;
+            const fileInput = document.getElementById('file-input');
+
+            if (!fileInput.files[0]) {
+                alert('Lütfen kapak resmi seçin');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loading').style.display = 'flex';
+            document.getElementById('predict-btn').disabled = true;
+
+            const formData = new FormData();
+            formData.append('image', fileInput.files[0]);
+            formData.append('title', document.getElementById('title').value || 'Bilinmiyor');
+            formData.append('author', document.getElementById('author').value || 'Bilinmiyor');
+            formData.append('publisher', document.getElementById('publisher').value || 'Genel');
+            formData.append('page', document.getElementById('page').value || 300);
+            formData.append('price', document.getElementById('price').value || 75);
+
+            try {
+                const response = await fetch(`${apiUrl}/predict`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const data = await response.json();
+                showResults(data);
+
+            } catch (error) {
+                alert('Hata: ' + error.message + '\n\nAPI bağlantısını kontrol edin.');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('predict-btn').disabled = false;
+            }
+        }
+
+        function showResults(data) {
+            // Hide placeholder, show results
+            document.getElementById('placeholder-section').style.display = 'none';
+            document.getElementById('result-section').style.display = 'block';
+
+            // Score circle
+            const effect = data.kapak_etkisi;
+            const circle = document.getElementById('score-circle');
+            circle.className = 'score-circle ' + (effect > 0.1 ? 'positive' : effect < -0.1 ? 'negative' : 'neutral');
+            document.getElementById('score-value').textContent = (effect >= 0 ? '+' : '') + effect.toFixed(3);
+
+            // Stats
+            document.getElementById('baseline-value').textContent = data.baseline_yorum.toLocaleString('tr-TR');
+            document.getElementById('predicted-value').textContent = data.tahmini_yorum.toLocaleString('tr-TR');
+            document.getElementById('sales-value').textContent = data.tahmini_satis.toLocaleString('tr-TR');
+            document.getElementById('effect-pct').textContent = data.kapak_etkisi_pct;
+
+            // Assessment
+            document.getElementById('assessment').textContent = data.kapak_degerlendirme;
+            document.getElementById('category').textContent = data.basari_kategorisi;
+
+            // Ideal ranges
+            if (data.ideal_araliklar && data.ideal_araliklar.publisher) {
+                document.getElementById('ideal-section').style.display = 'block';
+                const pub = data.ideal_araliklar.publisher;
+                document.getElementById('ideal-price').textContent = pub.price_range;
+                document.getElementById('ideal-page').textContent = pub.page_range;
+            }
+        }
+    </script>
+</body>
+</html>

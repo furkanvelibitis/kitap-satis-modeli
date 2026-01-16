@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kitap Satış Tahmin</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        body {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #555;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 16px;
+        }
+        input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        .row {
+            display: flex;
+            gap: 16px;
+        }
+        .row > div {
+            flex: 1;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #preview {
+            max-width: 200px;
+            max-height: 300px;
+            margin: 10px auto;
+            display: block;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        #result {
+            display: none;
+        }
+        .result-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .result-item {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+        }
+        .result-item.full {
+            grid-column: 1 / -1;
+        }
+        .result-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        .result-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #333;
+        }
+        .result-value.positive {
+            color: #28a745;
+        }
+        .result-value.negative {
+            color: #dc3545;
+        }
+        .result-value.neutral {
+            color: #ffc107;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .category-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            background: #e9ecef;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        #api-url {
+            font-size: 14px;
+            padding: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>📚 Kitap Satış Tahmin</h1>
+
+    <div class="card">
+        <label>API URL</label>
+        <input type="text" id="api-url" value="http://localhost:8000" placeholder="http://IP:8000">
+    </div>
+
+    <div class="card">
+        <label>Kapak Resmi</label>
+        <input type="file" id="cover-image" accept="image/*">
+        <img id="preview" style="display:none;">
+    </div>
+
+    <div class="card">
+        <label>Kitap Adı</label>
+        <input type="text" id="title" placeholder="Kitap adını girin">
+
+        <div class="row">
+            <div>
+                <label>Yazar</label>
+                <input type="text" id="author" placeholder="Yazar adı">
+            </div>
+            <div>
+                <label>Yayınevi</label>
+                <input type="text" id="publisher" placeholder="Yayınevi adı">
+            </div>
+        </div>
+
+        <div class="row">
+            <div>
+                <label>Sayfa Sayısı</label>
+                <input type="number" id="page" placeholder="300" value="300">
+            </div>
+            <div>
+                <label>Fiyat (TL)</label>
+                <input type="number" id="price" placeholder="75" value="75">
+            </div>
+        </div>
+
+        <button id="predict-btn" onclick="predict()">🔮 Tahmin Et</button>
+    </div>
+
+    <div id="loading" class="card loading" style="display:none;">
+        <div class="spinner"></div>
+        <p>Tahmin yapılıyor...</p>
+    </div>
+
+    <div id="result" class="card">
+        <h2>Sonuçlar</h2>
+        <div class="result-grid">
+            <div class="result-item">
+                <div class="result-label">Baseline (Yazar/Yayınevi)</div>
+                <div class="result-value" id="res-baseline">-</div>
+                <div style="font-size:12px;color:#666;">beklenen yorum</div>
+            </div>
+            <div class="result-item">
+                <div class="result-label">Kapak Etkisi</div>
+                <div class="result-value" id="res-cover-effect">-</div>
+                <div id="res-cover-pct" style="font-size:14px;">-</div>
+            </div>
+            <div class="result-item">
+                <div class="result-label">Tahmini Yorum</div>
+                <div class="result-value" id="res-reviews">-</div>
+            </div>
+            <div class="result-item">
+                <div class="result-label">Tahmini Satış</div>
+                <div class="result-value" id="res-sales">-</div>
+            </div>
+            <div class="result-item full">
+                <div class="result-label">Kategori</div>
+                <span class="category-badge" id="res-category">-</span>
+            </div>
+            <div class="result-item full">
+                <div class="result-label">Kapak Değerlendirmesi</div>
+                <div id="res-cover-comment" style="font-size:16px;font-weight:500;">-</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Resim önizleme
+        document.getElementById('cover-image').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('preview');
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        async function predict() {
+            const apiUrl = document.getElementById('api-url').value;
+            const imageInput = document.getElementById('cover-image');
+
+            if (!imageInput.files[0]) {
+                alert('Lütfen kapak resmi seçin');
+                return;
+            }
+
+            // UI güncelle
+            document.getElementById('predict-btn').disabled = true;
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+
+            // Form data oluştur
+            const formData = new FormData();
+            formData.append('image', imageInput.files[0]);
+            formData.append('title', document.getElementById('title').value || 'Bilinmiyor');
+            formData.append('author', document.getElementById('author').value || 'Bilinmiyor');
+            formData.append('publisher', document.getElementById('publisher').value || 'Genel');
+            formData.append('page', document.getElementById('page').value || 300);
+            formData.append('price', document.getElementById('price').value || 75);
+
+            try {
+                const response = await fetch(`${apiUrl}/predict`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                showResult(data);
+
+            } catch (error) {
+                alert('Hata: ' + error.message + '\n\nAPI URL doğru mu? API çalışıyor mu?');
+            } finally {
+                document.getElementById('predict-btn').disabled = false;
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function showResult(data) {
+            document.getElementById('result').style.display = 'block';
+
+            document.getElementById('res-baseline').textContent = data.baseline_yorum.toLocaleString();
+            document.getElementById('res-reviews').textContent = data.tahmini_yorum.toLocaleString();
+            document.getElementById('res-sales').textContent = data.tahmini_satis.toLocaleString() + ' adet';
+            document.getElementById('res-category').textContent = data.basari_kategorisi;
+            document.getElementById('res-cover-comment').textContent = data.kapak_degerlendirme;
+
+            // Kapak etkisi
+            const coverEffect = data.kapak_etkisi;
+            const coverEl = document.getElementById('res-cover-effect');
+            coverEl.textContent = coverEffect.toFixed(3);
+
+            if (coverEffect > 0.1) {
+                coverEl.className = 'result-value positive';
+            } else if (coverEffect < -0.1) {
+                coverEl.className = 'result-value negative';
+            } else {
+                coverEl.className = 'result-value neutral';
+            }
+
+            document.getElementById('res-cover-pct').textContent = data.kapak_etkisi_pct;
+        }
+    </script>
+</body>
+</html>

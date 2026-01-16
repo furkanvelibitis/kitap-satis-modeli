@@ -22,3 +22,14 @@ matplotlib>=3.7.0
 # Veri Seti
 datasets>=2.14.0
 huggingface_hub>=0.17.0
+
+# API
+fastapi>=0.104.0
+uvicorn>=0.24.0
+python-multipart>=0.0.6
+
+# LoRA Eğitimi (opsiyonel)
+# diffusers>=0.24.0
+# transformers>=4.36.0
+# accelerate>=0.25.0
+# peft>=0.7.0
