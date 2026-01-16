@@ -10,6 +10,8 @@ Endpoints:
     POST /analyze-cover - Sadece kapak analizi
     GET /ideal-ranges/{publisher} - Yayınevi için ideal aralıklar
     GET /health - Sağlık kontrolü
+    POST /generate-cover - LoRA ile kapak üretimi
+    GET /lora-status - LoRA model durumu
 """
 
 import os
@@ -52,6 +54,8 @@ app.add_middleware(
 # Global predictor (lazy loading)
 predictor = None
 ideal_ranges = None
+lora_pipeline = None
+lora_loaded = False
 
 
 def get_predictor():
@@ -73,6 +77,50 @@ def get_ideal_ranges():
             with open(path, 'rb') as f:
                 ideal_ranges = pickle.load(f)
     return ideal_ranges
+
+
+def get_lora_pipeline():
+    """Lazy load LoRA pipeline"""
+    global lora_pipeline, lora_loaded
+
+    if lora_pipeline is not None:
+        return lora_pipeline
+
+    lora_dir = os.path.join(BASE_DIR, "models", "lora_sdxl", "final")
+
+    if not os.path.exists(lora_dir):
+        return None
+
+    try:
+        print("LoRA modeli yükleniyor... (bu biraz zaman alabilir)")
+        from diffusers import StableDiffusionXLPipeline
+        from peft import PeftModel
+
+        # Base SDXL modelini yükle
+        pipe = StableDiffusionXLPipeline.from_pretrained(
+            "stabilityai/stable-diffusion-xl-base-1.0",
+            torch_dtype=torch.float16,
+            use_safetensors=True,
+            variant="fp16"
+        )
+
+        # LoRA ağırlıklarını yükle
+        pipe.unet = PeftModel.from_pretrained(pipe.unet, lora_dir)
+
+        # GPU'ya taşı
+        if torch.cuda.is_available():
+            pipe = pipe.to("cuda")
+            # Memory optimization
+            pipe.enable_attention_slicing()
+
+        lora_pipeline = pipe
+        lora_loaded = True
+        print("LoRA modeli hazır!")
+        return pipe
+
+    except Exception as e:
+        print(f"LoRA yükleme hatası: {e}")
+        return None
 
 
 # Request/Response Models
@@ -110,6 +158,21 @@ class HealthResponse(BaseModel):
     model_loaded: bool
     gpu_available: bool
     gpu_name: Optional[str] = None
+
+
+class LoraStatusResponse(BaseModel):
+    lora_available: bool
+    lora_loaded: bool
+    lora_path: str
+    gpu_available: bool
+    gpu_memory_gb: Optional[float] = None
+
+
+class GenerateCoverResponse(BaseModel):
+    success: bool
+    image_base64: Optional[str] = None
+    prompt_used: str
+    error: Optional[str] = None
 
 
 # Endpoints
@@ -336,6 +399,180 @@ async def predict_base64(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# =============================================
+# LORA KAPAK ÜRETİMİ ENDPOINTLERİ
+# =============================================
+
+@app.get("/lora-status", response_model=LoraStatusResponse, tags=["LoRA - Kapak Üretimi"])
+async def lora_status():
+    """
+    LoRA model durumu kontrolü
+    """
+    lora_dir = os.path.join(BASE_DIR, "models", "lora_sdxl", "final")
+    lora_available = os.path.exists(lora_dir)
+
+    gpu_memory = None
+    if torch.cuda.is_available():
+        gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+
+    return LoraStatusResponse(
+        lora_available=lora_available,
+        lora_loaded=lora_loaded,
+        lora_path=lora_dir,
+        gpu_available=torch.cuda.is_available(),
+        gpu_memory_gb=gpu_memory
+    )
+
+
+@app.post("/generate-cover", response_model=GenerateCoverResponse, tags=["LoRA - Kapak Üretimi"])
+async def generate_cover(
+    prompt: str = Form(default="book cover, bestseller, professional design"),
+    negative_prompt: str = Form(default="blurry, low quality, text, watermark, signature"),
+    num_inference_steps: int = Form(default=30, ge=10, le=50),
+    guidance_scale: float = Form(default=7.5, ge=1.0, le=15.0),
+    width: int = Form(default=768, ge=512, le=1024),
+    height: int = Form(default=1024, ge=512, le=1024),
+    seed: Optional[int] = Form(default=None)
+):
+    """
+    LoRA modeli ile kitap kapağı üret
+
+    - **prompt**: Kapak açıklaması (İngilizce önerilir)
+    - **negative_prompt**: İstenmeyen özellikler
+    - **num_inference_steps**: Üretim adımı (fazla = kaliteli ama yavaş)
+    - **guidance_scale**: Prompt'a bağlılık (7-8 ideal)
+    - **width**: Genişlik (768 önerilir)
+    - **height**: Yükseklik (1024 önerilir - kitap kapağı oranı)
+    - **seed**: Rastgelelik seed'i (aynı sonuç için)
+    """
+    try:
+        pipe = get_lora_pipeline()
+
+        if pipe is None:
+            return GenerateCoverResponse(
+                success=False,
+                prompt_used=prompt,
+                error="LoRA modeli bulunamadı. models/lora_sdxl/final klasörünü kontrol edin."
+            )
+
+        # Seed ayarla
+        generator = None
+        if seed is not None:
+            generator = torch.Generator(device="cuda" if torch.cuda.is_available() else "cpu")
+            generator.manual_seed(seed)
+
+        # Kapak üret
+        print(f"Kapak üretiliyor: {prompt[:50]}...")
+        image = pipe(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+            width=width,
+            height=height,
+            generator=generator
+        ).images[0]
+
+        # Base64'e çevir
+        buffered = io.BytesIO()
+        image.save(buffered, format="PNG")
+        img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+
+        return GenerateCoverResponse(
+            success=True,
+            image_base64=img_base64,
+            prompt_used=prompt
+        )
+
+    except Exception as e:
+        return GenerateCoverResponse(
+            success=False,
+            prompt_used=prompt,
+            error=str(e)
+        )
+
+
+@app.post("/generate-cover-for-book", tags=["LoRA - Kapak Üretimi"])
+async def generate_cover_for_book(
+    title: str = Form(...),
+    author: str = Form(...),
+    genre: str = Form(default="roman"),
+    mood: str = Form(default="professional"),
+    num_inference_steps: int = Form(default=30),
+    seed: Optional[int] = Form(default=None)
+):
+    """
+    Kitap bilgilerine göre otomatik prompt oluşturup kapak üret
+
+    - **title**: Kitap adı
+    - **author**: Yazar adı
+    - **genre**: Tür (roman, polisiye, bilim kurgu, tarih, vb.)
+    - **mood**: Atmosfer (professional, dark, colorful, minimalist, vb.)
+    """
+    try:
+        pipe = get_lora_pipeline()
+
+        if pipe is None:
+            return {
+                "success": False,
+                "error": "LoRA modeli bulunamadı"
+            }
+
+        # Türe göre prompt oluştur
+        genre_prompts = {
+            "roman": "literary fiction, elegant",
+            "polisiye": "mystery, dark atmosphere, suspense",
+            "bilim kurgu": "science fiction, futuristic, space",
+            "fantastik": "fantasy, magical, mystical",
+            "tarih": "historical, vintage, classic",
+            "aşk": "romance, soft colors, emotional",
+            "korku": "horror, dark, scary, gothic",
+            "çocuk": "children book, colorful, playful, cartoon"
+        }
+
+        genre_desc = genre_prompts.get(genre.lower(), "professional design")
+
+        prompt = f"book cover, bestseller, {genre_desc}, {mood}, high quality, detailed"
+        negative_prompt = "blurry, low quality, text, watermark, signature, amateur"
+
+        # Seed ayarla
+        generator = None
+        if seed is not None:
+            generator = torch.Generator(device="cuda" if torch.cuda.is_available() else "cpu")
+            generator.manual_seed(seed)
+
+        print(f"Kapak üretiliyor: '{title}' by {author}")
+        image = pipe(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            num_inference_steps=num_inference_steps,
+            guidance_scale=7.5,
+            width=768,
+            height=1024,
+            generator=generator
+        ).images[0]
+
+        # Base64'e çevir
+        buffered = io.BytesIO()
+        image.save(buffered, format="PNG")
+        img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+
+        return {
+            "success": True,
+            "title": title,
+            "author": author,
+            "genre": genre,
+            "prompt_used": prompt,
+            "image_base64": img_base64
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
 # Startup event
 @app.on_event("startup")
 async def startup_event():
@@ -344,8 +581,14 @@ async def startup_event():
     print(f"GPU: {torch.cuda.is_available()}")
     if torch.cuda.is_available():
         print(f"GPU Name: {torch.cuda.get_device_name(0)}")
-    # Model'i önceden yükle (opsiyonel - ilk istekte de yüklenebilir)
-    # get_predictor()
+        print(f"GPU Memory: {torch.cuda.get_device_properties(0).total_memory / (1024**3):.1f} GB")
+
+    # LoRA model kontrolü
+    lora_dir = os.path.join(BASE_DIR, "models", "lora_sdxl", "final")
+    if os.path.exists(lora_dir):
+        print(f"LoRA modeli bulundu: {lora_dir}")
+    else:
+        print("LoRA modeli bulunamadı (opsiyonel)")
 
 
 if __name__ == "__main__":

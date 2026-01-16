@@ -400,6 +400,130 @@
             margin-top: 30px;
             font-size: 0.875rem;
         }
+
+        /* Tab Navigation */
+        .tab-nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: rgba(255,255,255,0.1);
+            padding: 8px;
+            border-radius: 12px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 14px 20px;
+            border: none;
+            background: transparent;
+            color: rgba(255,255,255,0.7);
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+
+        .tab-btn.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Generate Section */
+        .generated-image {
+            max-width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+
+        .generate-preview {
+            text-align: center;
+            padding: 40px;
+            background: var(--gray-50);
+            border-radius: 12px;
+            border: 2px dashed var(--gray-300);
+        }
+
+        .generate-preview.has-image {
+            padding: 16px;
+            border: none;
+            background: transparent;
+        }
+
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 16px;
+            padding: 12px 24px;
+            background: var(--success);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .download-btn:hover {
+            background: #059669;
+            transform: translateY(-1px);
+        }
+
+        .genre-select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--gray-200);
+            border-radius: 10px;
+            font-size: 1rem;
+            background: white;
+            cursor: pointer;
+        }
+
+        .genre-select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .lora-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: var(--gray-50);
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 0.875rem;
+        }
+
+        .lora-status.available {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .lora-status.unavailable {
+            background: #fee2e2;
+            color: #991b1b;
+        }
     </style>
 </head>
 <body>
@@ -415,6 +539,18 @@
             <div class="status-dot" id="status-dot"></div>
         </div>
 
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('predict')">
+                <span>📊</span> Satış Tahmini
+            </button>
+            <button class="tab-btn" onclick="switchTab('generate')">
+                <span>🎨</span> Kapak Üretimi
+            </button>
+        </div>
+
+        <!-- TAB 1: Satış Tahmini -->
+        <div class="tab-content active" id="tab-predict">
         <div class="main-grid">
             <!-- Sol: Form -->
             <div class="card">
@@ -516,6 +652,85 @@
                     <p>Kitap bilgilerini girip<br>"Tahmin Et" butonuna basın</p>
                 </div>
             </div>
+        </div>
+        </div>
+
+        <!-- TAB 2: Kapak Üretimi -->
+        <div class="tab-content" id="tab-generate">
+        <div class="main-grid">
+            <!-- Sol: Form -->
+            <div class="card">
+                <h2 class="card-title"><span>🎨</span> Kapak Üretici (LoRA)</h2>
+
+                <div class="lora-status" id="lora-status">
+                    <span>⏳</span> LoRA durumu kontrol ediliyor...
+                </div>
+
+                <div class="form-group">
+                    <label>Kitap Adı</label>
+                    <input type="text" id="gen-title" placeholder="Örn: Gizemli Ada">
+                </div>
+
+                <div class="form-group">
+                    <label>Yazar</label>
+                    <input type="text" id="gen-author" placeholder="Örn: Jules Verne">
+                </div>
+
+                <div class="form-group">
+                    <label>Kitap Türü</label>
+                    <select class="genre-select" id="gen-genre">
+                        <option value="roman">Roman</option>
+                        <option value="polisiye">Polisiye</option>
+                        <option value="bilim kurgu">Bilim Kurgu</option>
+                        <option value="fantastik">Fantastik</option>
+                        <option value="tarih">Tarih</option>
+                        <option value="aşk">Aşk</option>
+                        <option value="korku">Korku</option>
+                        <option value="çocuk">Çocuk</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Atmosfer</label>
+                    <select class="genre-select" id="gen-mood">
+                        <option value="professional">Profesyonel</option>
+                        <option value="dark">Karanlık</option>
+                        <option value="colorful">Renkli</option>
+                        <option value="minimalist">Minimalist</option>
+                        <option value="vintage">Vintage</option>
+                        <option value="modern">Modern</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Özel Prompt (Opsiyonel)</label>
+                    <input type="text" id="gen-custom-prompt" placeholder="İngilizce ek detaylar...">
+                </div>
+
+                <button class="btn" id="generate-btn" onclick="generateCover()">
+                    <span>🖼️</span> Kapak Üret
+                </button>
+            </div>
+
+            <!-- Sağ: Sonuç -->
+            <div class="card">
+                <h2 class="card-title"><span>🖼️</span> Üretilen Kapak</h2>
+
+                <div class="generate-preview" id="generate-preview">
+                    <div style="font-size: 4rem; margin-bottom: 16px;">🎭</div>
+                    <p style="color: var(--gray-600);">Kitap bilgilerini girin ve<br>"Kapak Üret" butonuna basın</p>
+                    <p style="color: var(--gray-500); font-size: 0.8rem; margin-top: 12px;">⏱️ Üretim 20-40 saniye sürebilir</p>
+                </div>
+
+                <img id="generated-image" class="generated-image" style="display: none;">
+
+                <div id="download-section" style="display: none; text-align: center;">
+                    <button class="download-btn" onclick="downloadCover()">
+                        <span>💾</span> Kapağı İndir
+                    </button>
+                </div>
+            </div>
+        </div>
         </div>
 
         <footer>
@@ -636,6 +851,126 @@
                 document.getElementById('ideal-page').textContent = pub.page_range;
             }
         }
+
+        // =============================================
+        // TAB SWITCHING
+        // =============================================
+        function switchTab(tab) {
+            // Update buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.closest('.tab-btn').classList.add('active');
+
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+
+            // Check LoRA status when switching to generate tab
+            if (tab === 'generate') {
+                checkLoraStatus();
+            }
+        }
+
+        // =============================================
+        // LORA KAPAK ÜRETİMİ
+        // =============================================
+        let generatedImageData = null;
+
+        async function checkLoraStatus() {
+            const apiUrl = document.getElementById('api-url').value;
+            const statusDiv = document.getElementById('lora-status');
+
+            try {
+                const res = await fetch(`${apiUrl}/lora-status`);
+                const data = await res.json();
+
+                if (data.lora_available) {
+                    statusDiv.className = 'lora-status available';
+                    statusDiv.innerHTML = `<span>✅</span> LoRA modeli hazır (${data.gpu_memory_gb?.toFixed(1) || '?'} GB GPU)`;
+                    document.getElementById('generate-btn').disabled = false;
+                } else {
+                    statusDiv.className = 'lora-status unavailable';
+                    statusDiv.innerHTML = '<span>❌</span> LoRA modeli bulunamadı';
+                    document.getElementById('generate-btn').disabled = true;
+                }
+            } catch {
+                statusDiv.className = 'lora-status unavailable';
+                statusDiv.innerHTML = '<span>⚠️</span> API bağlantısı yok';
+                document.getElementById('generate-btn').disabled = true;
+            }
+        }
+
+        async function generateCover() {
+            const apiUrl = document.getElementById('api-url').value;
+            const title = document.getElementById('gen-title').value || 'Kitap';
+            const author = document.getElementById('gen-author').value || 'Yazar';
+            const genre = document.getElementById('gen-genre').value;
+            const mood = document.getElementById('gen-mood').value;
+            const customPrompt = document.getElementById('gen-custom-prompt').value;
+
+            // Show loading
+            document.getElementById('loading').style.display = 'flex';
+            document.querySelector('#loading .loading-box div:last-child').textContent = 'Kapak üretiliyor... (20-40 saniye)';
+            document.getElementById('generate-btn').disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('title', title);
+                formData.append('author', author);
+                formData.append('genre', genre);
+                formData.append('mood', mood);
+
+                let endpoint = '/generate-cover-for-book';
+
+                // Özel prompt varsa doğrudan generate-cover kullan
+                if (customPrompt) {
+                    endpoint = '/generate-cover';
+                    formData.delete('title');
+                    formData.delete('author');
+                    formData.delete('genre');
+                    formData.delete('mood');
+                    formData.append('prompt', `book cover, bestseller, ${customPrompt}, high quality`);
+                }
+
+                const response = await fetch(`${apiUrl}${endpoint}`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.image_base64) {
+                    // Show image
+                    generatedImageData = data.image_base64;
+                    const img = document.getElementById('generated-image');
+                    img.src = 'data:image/png;base64,' + data.image_base64;
+                    img.style.display = 'block';
+
+                    document.getElementById('generate-preview').style.display = 'none';
+                    document.getElementById('download-section').style.display = 'block';
+                } else {
+                    alert('Hata: ' + (data.error || 'Bilinmeyen hata'));
+                }
+
+            } catch (error) {
+                alert('Bağlantı hatası: ' + error.message);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('generate-btn').disabled = false;
+            }
+        }
+
+        function downloadCover() {
+            if (!generatedImageData) return;
+
+            const title = document.getElementById('gen-title').value || 'kapak';
+            const link = document.createElement('a');
+            link.href = 'data:image/png;base64,' + generatedImageData;
+            link.download = `${title.replace(/\s+/g, '_')}_kapak.png`;
+            link.click();
+        }
+
+        // Initial LoRA check
+        setTimeout(checkLoraStatus, 1500);
     </script>
 </body>
 </html>

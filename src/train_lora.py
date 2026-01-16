@@ -209,77 +209,113 @@ def train_lora_sdxl(
 
     global_step = 0
     progress_bar = tqdm(total=max_train_steps, desc="Training")
+    final_dir = os.path.join(output_dir, "final")
+    last_loss = None
 
-    while global_step < max_train_steps:
-        for batch in dataloader:
-            if global_step >= max_train_steps:
-                break
+    def save_model(save_dir, message=""):
+        """Model kaydetme helper fonksiyonu"""
+        try:
+            os.makedirs(save_dir, exist_ok=True)
+            unet.save_pretrained(save_dir)
+            print(f"\n  ✅ Model kaydedildi: {save_dir} {message}")
+            return True
+        except Exception as e:
+            print(f"\n  ❌ Model kaydetme hatası: {e}")
+            return False
 
-            images = batch["image"].to(device, dtype=torch.float16)
-            captions = batch["caption"]
+    try:
+        while global_step < max_train_steps:
+            for batch in dataloader:
+                if global_step >= max_train_steps:
+                    break
 
-            # Latent'e encode et
-            with torch.no_grad():
-                latents = vae.encode(images).latent_dist.sample()
-                latents = latents * vae.config.scaling_factor
+                try:
+                    images = batch["image"].to(device, dtype=torch.float16)
+                    captions = batch["caption"]
 
-            # Noise ekle
-            noise = torch.randn_like(latents)
-            timesteps = torch.randint(0, noise_scheduler.config.num_train_timesteps, (latents.shape[0],), device=device)
-            noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
+                    # Latent'e encode et
+                    with torch.no_grad():
+                        latents = vae.encode(images).latent_dist.sample()
+                        latents = latents * vae.config.scaling_factor
 
-            # Text encoding
-            with torch.no_grad():
-                text_input = tokenizer(captions, padding="max_length", max_length=77, truncation=True, return_tensors="pt")
-                text_embeddings = text_encoder(text_input.input_ids.to(device))[0]
+                    # Noise ekle
+                    noise = torch.randn_like(latents)
+                    timesteps = torch.randint(0, noise_scheduler.config.num_train_timesteps, (latents.shape[0],), device=device)
+                    noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
 
-                text_input_2 = tokenizer_2(captions, padding="max_length", max_length=77, truncation=True, return_tensors="pt")
-                text_embeddings_2 = text_encoder_2(text_input_2.input_ids.to(device))[0]
+                    # Text encoding
+                    with torch.no_grad():
+                        # Text encoder 1
+                        text_input = tokenizer(captions, padding="max_length", max_length=77, truncation=True, return_tensors="pt")
+                        text_embeddings = text_encoder(text_input.input_ids.to(device), output_hidden_states=True)
+                        text_embeddings_1 = text_embeddings.hidden_states[-2]  # (batch, 77, 768)
 
-                # SDXL pooled embeddings
-                pooled_embeddings = text_encoder_2(text_input_2.input_ids.to(device), output_hidden_states=True).hidden_states[-2]
+                        # Text encoder 2
+                        text_input_2 = tokenizer_2(captions, padding="max_length", max_length=77, truncation=True, return_tensors="pt")
+                        text_embeddings_2_output = text_encoder_2(text_input_2.input_ids.to(device), output_hidden_states=True)
+                        text_embeddings_2 = text_embeddings_2_output.hidden_states[-2]  # (batch, 77, 1280)
+                        pooled_embeddings = text_embeddings_2_output[0]  # pooler_output (batch, 1280)
 
-            # Time embeddings
-            add_time_ids = torch.tensor([[1024, 1024, 0, 0, 1024, 1024]], device=device, dtype=torch.float16)
-            add_time_ids = add_time_ids.repeat(latents.shape[0], 1)
+                    # Time embeddings
+                    add_time_ids = torch.tensor([[1024, 1024, 0, 0, 1024, 1024]], device=device, dtype=torch.float16)
+                    add_time_ids = add_time_ids.repeat(latents.shape[0], 1)
 
-            # UNet prediction
-            added_cond_kwargs = {"text_embeds": pooled_embeddings.mean(dim=1), "time_ids": add_time_ids}
-            encoder_hidden_states = torch.cat([text_embeddings, text_embeddings_2], dim=-1)
+                    # UNet prediction - concat text embeddings along feature dim
+                    encoder_hidden_states = torch.cat([text_embeddings_1, text_embeddings_2], dim=-1)  # (batch, 77, 2048)
+                    added_cond_kwargs = {"text_embeds": pooled_embeddings, "time_ids": add_time_ids}
 
-            noise_pred = unet(
-                noisy_latents,
-                timesteps,
-                encoder_hidden_states=encoder_hidden_states,
-                added_cond_kwargs=added_cond_kwargs
-            ).sample
+                    noise_pred = unet(
+                        noisy_latents,
+                        timesteps,
+                        encoder_hidden_states=encoder_hidden_states,
+                        added_cond_kwargs=added_cond_kwargs
+                    ).sample
 
-            # Loss hesapla
-            loss = F.mse_loss(noise_pred.float(), noise.float(), reduction="mean")
+                    # Loss hesapla
+                    loss = F.mse_loss(noise_pred.float(), noise.float(), reduction="mean")
+                    last_loss = loss.item()
 
-            # Backward
-            loss.backward()
+                    # Backward
+                    loss.backward()
 
-            if (global_step + 1) % gradient_accumulation_steps == 0:
-                optimizer.step()
-                optimizer.zero_grad()
+                    if (global_step + 1) % gradient_accumulation_steps == 0:
+                        optimizer.step()
+                        optimizer.zero_grad()
 
-            progress_bar.update(1)
-            progress_bar.set_postfix(loss=loss.item())
-            global_step += 1
+                    progress_bar.update(1)
+                    progress_bar.set_postfix(loss=last_loss)
+                    global_step += 1
 
-            # Checkpoint kaydet
-            if global_step % save_steps == 0:
-                checkpoint_dir = os.path.join(output_dir, f"checkpoint-{global_step}")
-                os.makedirs(checkpoint_dir, exist_ok=True)
-                unet.save_pretrained(checkpoint_dir)
-                print(f"\n  Checkpoint kaydedildi: {checkpoint_dir}")
+                    # Checkpoint kaydet
+                    if global_step % save_steps == 0:
+                        checkpoint_dir = os.path.join(output_dir, f"checkpoint-{global_step}")
+                        save_model(checkpoint_dir, f"(step {global_step})")
+
+                except RuntimeError as e:
+                    if "out of memory" in str(e).lower():
+                        print(f"\n  ⚠️ GPU bellek hatası, batch atlanıyor...")
+                        torch.cuda.empty_cache()
+                        continue
+                    else:
+                        raise e
+
+    except KeyboardInterrupt:
+        print(f"\n\n⚠️ Eğitim kullanıcı tarafından durduruldu (step {global_step})")
+        save_model(final_dir, "(interrupted)")
+        return final_dir
+
+    except Exception as e:
+        print(f"\n\n❌ Eğitim hatası (step {global_step}): {e}")
+        print("Model kaydediliyor...")
+        save_model(final_dir, f"(error at step {global_step})")
+        raise e
+
+    finally:
+        progress_bar.close()
 
     # Final model kaydet
-    final_dir = os.path.join(output_dir, "final")
-    os.makedirs(final_dir, exist_ok=True)
-    unet.save_pretrained(final_dir)
-    print(f"\nEğitim tamamlandı! Model: {final_dir}")
+    save_model(final_dir, "(completed)")
+    print(f"\n✅ Eğitim tamamlandı! Toplam step: {global_step}")
 
     return final_dir
 
