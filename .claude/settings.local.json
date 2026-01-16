@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip show:*)",
+      "Bash(python:*)",
+      "WebSearch",
+      "Bash(pip install:*)",
+      "Bash(kaggle datasets:*)",
+      "Bash(timeout:*)",
+      "Bash(dir \"C:\\\\Users\\\\Furkan\\\\OneDrive\\\\Masaüstü\\\\Yapay_Zeka\\\\kitap satış modeli\\\\data\\\\raw\")",
+      "Bash(huggingface-cli whoami:*)",
+      "Bash(ren \"C:\\\\Users\\\\Furkan\\\\OneDrive\\\\Masaüstü\\\\Yapay_Zeka\\\\kitap satış modeli\\\\data\\\\raw\\\\0000.parquet\" \"kitapyurdu_yorumlar.parquet\")",
+      "Bash(dir /s /b \"C:\\\\Users\\\\Furkan\\\\OneDrive\\\\Masaüstü\\\\Yapay_Zeka\\\\kitap satış modeli\\\\src\\\\*.py\")"
+    ]
+  }
+}

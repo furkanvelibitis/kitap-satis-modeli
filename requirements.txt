@@ -1,0 +1,24 @@
+# Kitap Satış Tahmin Modeli - Gereksinimler
+
+# Veri İşleme
+pandas>=2.0.0
+numpy>=1.24.0
+scikit-learn>=1.3.0
+
+# Deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Görsel İşleme
+Pillow>=10.0.0
+
+# İndirme & Web
+requests>=2.31.0
+tqdm>=4.65.0
+
+# Görselleştirme
+matplotlib>=3.7.0
+
+# Veri Seti
+datasets>=2.14.0
+huggingface_hub>=0.17.0

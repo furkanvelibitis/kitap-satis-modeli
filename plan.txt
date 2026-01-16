@@ -1,0 +1,64 @@
+Bir kitabı satışa çıkartmadan önce ne kadar satabileceğini öngörmek istiyorum. Bunun için aşağıdaki metinde yer alan planı dikkatlice oku.
+
+
+1. Hazır Veri Setleri (Direkt İndir ve Kullan)[2]
+
+Bu setler, birilerinin scraping işlemini yapıp CSV dosyası haline getirdiği verilerdir.[1]
+
+Kaggle - Turkish Book Data Set (Muhammed İbrahim Top):
+
+İçinde kitap adı, yazar, yayınevi, sayfa sayısı, ISBN, kategori, ÖZET (description) ve RESİM URL'si var.
+
+Google'da arat: Kaggle Turkish Book Data Set
+
+HuggingFace - Kitapyurdu Yorumlar Veri Seti (Ali Bayram):
+
+Tam 404.637 adet Kitapyurdu yorumu ve puanlaması içeriyor.
+
+Senin modelin için harika bir "NLP (Doğal Dil İşleme)" kaynağı.[1] Hangi kelimelerin 5 yıldıza, hangi kelimelerin 1 yıldıza götürdüğünü bu setle öğrenebilirsin.
+
+Google'da arat: HuggingFace alibayram/kitapyurdu_yorumlar[1]
+
+2. Hazır Araçlar (Fresh Veri İstiyorsan)
+
+Eğer "Ben eski veri istemiyorum, bugünün en çok satanlarını çekeceğim" diyorsan, GitHub'da hazır kodlanmış botlar var.
+
+GitHub - Book Scraper (alperencubuk):
+
+Python (Scrapy ve FastAPI) ile yazılmış.[1] Özel olarak Kitapyurdu ve Kitapsepeti sitelerini hedefliyor.
+
+Kodları indirip çalıştırdığında sana temiz bir JSON veya veritabanı çıktısı veriyor.[1]
+
+Google'da arat: github alperencubuk book-scraper[1][4]
+
+3. Senin İçin Yeni Oyun Planı (Çok Daha Kolay!)
+
+Artık elinde hem veri hem araç var.[1][4][5][6] Projeni şu aşamalarla çok hızlı hayata geçirebilirsin:
+
+Kaggle Setini İndir: O hazır seti "temel" veri olarak kullan.[1] Resim URL'lerini kullanarak kapak görsellerini bilgisayarına indir.[1][7]
+
+Modelini Kur:
+
+Girdi: Kapak Görseli + Kitap Özeti + Yazar Adı.[1][4][7][8][9]
+
+Çıktı: Yorum Sayısı veya Puan Ortalaması (Kaggle verisinde satış rakamı yoksa, yorum sayısını "popülerlik" yani satış başarısı olarak kabul edebilirsin).
+
+HuggingFace ile Güçlendir: Yorum veri setini kullanarak, kitabın özetinden "insanların bu konuya vereceği tepkiyi" tahmin eden bir alt model eğit.[1]
+
+
+Sources
+huggingface.co
+huggingface.co
+huggingface.co
+github.com
+kitapyurdu.com
+kaggle.com
+kaggle.com
+kaggle.com
+kaggle.com
+Google Search Suggestions
+Display of Search Suggestions is required when using Grounding with Google Search. Learn more
+huggingface datasets turkish books
+kitapyurdu dataset
+kaggle turkish book dataset kitapyurdu
+kitapyurdu scraper
